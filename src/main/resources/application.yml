@@ -1,0 +1,118 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: Gateway
+
+  cloud:
+    gateway:
+      # Global CORS configuration
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://localhost:8085"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - "Authorization"
+              - "X-User-Id"
+            allowCredentials: true
+            maxAge: 3600
+
+      # Route definitions
+      routes:
+        # ========== USER SERVICE (Port 8080) ==========
+        # Note: Your User Service is on the same port as Gateway
+        # You'll need to change User Service to a different port (e.g., 8086)
+        - id: user-service
+          uri: http://localhost:8080
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - PreserveHostHeader
+
+        # ========== CLASS SERVICE (Port 8081) ==========
+        - id: class-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/classes/**
+          filters:
+            - PreserveHostHeader
+
+        # ========== ENROLLMENT SERVICE (Port 8082) ==========
+        - id: enrollment-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/enrollments/**
+          filters:
+            - PreserveHostHeader
+
+        # ========== QUIZ SERVICE (Port 8084) ==========
+        - id: quiz-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/quizzes/**
+          filters:
+            - PreserveHostHeader
+
+        # ========== ADMIN SERVICE (Port 8085) ==========
+        - id: admin-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/admin/**
+          filters:
+            - PreserveHostHeader
+
+      # Default filters applied to all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: Retry
+          args:
+            retries: 3
+            statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+            methods: GET
+            backoff:
+              firstBackoff: 50ms
+              maxBackoff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
+
+# Actuator endpoints for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,routes,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+    reactor.netty: INFO
+    org.springframework.http.server.reactive: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Gateway timeout settings
+spring.cloud.gateway:
+  httpclient:
+    connect-timeout: 5000
+    response-timeout: 30s
